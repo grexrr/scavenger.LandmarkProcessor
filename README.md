@@ -60,6 +60,7 @@ Its responsibilities include:
   "content": "Echoes of vows and silent prayer linger here",
   "created_at": "2025-05-04T13:00:00Z"
 }
+```
 
 ---
 
