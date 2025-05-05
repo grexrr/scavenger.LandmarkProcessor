@@ -1,0 +1,79 @@
+{
+    "Glucksman Gallery": {
+        "centroid": {
+            "lat": 986.0000934,
+            "lon": -161.3160413
+        },
+        "tags": {
+            "building": "university",
+            "building:levels": "2",
+            "building:material": "concrete",
+            "name": "Glucksman Gallery",
+            "tourism": "gallery"
+        }
+    },
+    "Cork Greyhound Track": {
+        "centroid": {
+            "lat": 1245.0359039,
+            "lon": -205.17548789999998
+        },
+        "tags": {
+            "leisure": "track",
+            "name": "Cork Greyhound Track",
+            "sport": "dog_racing"
+        }
+    },
+    "Honan Collegiate Chapel": {
+        "centroid": {
+            "lat": 1037.8706955,
+            "lon": -169.7907155
+        },
+        "tags": {
+            "amenity": "place_of_worship",
+            "building": "chapel",
+            "denomination": "roman_catholic",
+            "name": "Honan Collegiate Chapel",
+            "religion": "christian"
+        }
+    },
+    "Boole Library": {
+        "centroid": {
+            "lat": 1297.321496,
+            "lon": -212.28112720000004
+        },
+        "tags": {
+            "access": "private",
+            "addr:city": "Cork",
+            "addr:housename": "University College Cork",
+            "addr:postcode": "T12 ND89",
+            "addr:street": "College Road",
+            "amenity": "library",
+            "building": "university",
+            "building:levels": "5",
+            "email": "library@ucc.ie",
+            "internet_access": "yes",
+            "name": "Boole Library",
+            "opening_hours": "07:30-01:30",
+            "operator": "University College Cork",
+            "operator:type": "public",
+            "phone": "+353 21 490-2292",
+            "website": "https://libguides.ucc.ie/library",
+            "wheelchair": "yes",
+            "year_of_construction": "1980s"
+        }
+    },
+    "The Quad / Aula Maxima": {
+        "centroid": {
+            "lat": 7472.695971200001,
+            "lon": -1222.8802701
+        },
+        "tags": {
+            "building": "university",
+            "building:colour": "grey",
+            "building:material": "stone",
+            "layer": "1",
+            "name": "The Quad / Aula Maxima",
+            "wheelchair": "yes"
+        }
+    }
+}
