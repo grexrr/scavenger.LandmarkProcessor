@@ -89,61 +89,127 @@ Its responsibilities include:
 
 ---
 
-#### May. 5 2025
+#### May 5, 2025
 
-**Goal: Implement POI fetcher and preprocessor module for OpenStreetMap to generate standardized Landmark data for the dynamic landmark generator service.**
+## Objective
 
----
-
-* **Initial implementation of `Preprocessor` module:**
-
-  * Created `Preprocessor` class to manage OpenStreetMap queries and POI data processing.
-  * Implemented `fetchRaw`:
-
-    * Sends a POST request to Overpass API with the defined query.
-    * Retrieves raw POI data and saves to `raw.json` in the `outputfiles` directory.
-  * Implemented `saveAsFile`:
-
-    * Allows saving raw OSM data to disk.
-    * Automatically adds `.json` extension if necessary.
-
-* **Landmark identification and extraction:**
-
-  * Implemented `findRawLandmarks`:
-
-    * If no landmark list is provided, selects all POIs with a `name` tag.
-    * If a landmark list is provided, matches POIs against the list and logs missing entries.
-    * Used `for-else` syntax to cleanly identify missing landmarks without boolean flags.
-
-* **Landmark processing and standardization:**
-
-  * Implemented `processRawLandmark`:
-
-    * Processes each raw landmark to calculate centroid coordinates based on the `geometry` field.
-    * Extracts and attaches OSM `tags` for metadata (such as `amenity`, `tourism`, `wikidata`, and `wikipedia` when available).
-    * Packaged processed landmark data into a simplified format for easy consumption.
-    * Added `debug` option to return raw landmark data for debugging purposes.
-
-* **Test run and validation:**
-
-  * Successfully fetched and processed Cork POI dataset using a composite Overpass query:
-
-    * Included categories: `amenity`, `tourism`, `historic`, `leisure`, `building` with `name`.
-    * Excluded irrelevant categories such as `parking`, `waste_disposal`, and `pitch`.
-  * Confirmed that key landmarks such as Glucksman Gallery, Boole Library, and The Quad were included and correctly processed.
-  * Generated `pre-processed.json` containing processed landmark data with centroid coordinates and tags.
+Implement POI fetcher and preprocessor module, and begin work on riddle generation module for the dynamic landmark generator service.
 
 ---
 
-##### Design Notes
+## POI Fetcher and Preprocessor
 
-* Applied Overpass API `out geom` query style to ensure all way-type POIs include geometry data for centroid calculation.
-* Introduced dynamic landmark fetching mode:
+### Implementation
 
-  * If landmark list is empty, all POIs with `name` are included.
-  * If landmark list is provided, only exact matches are processed.
-* Used simple average method for calculating centroids, suitable for most building and POI geometries.
-* Automatically skipped POIs without a `name` to maintain landmark quality.
-* Future support planned for metadata enrichment using `wikidata` and `wikipedia` fields for each landmark.
+* Added `Preprocessor` class to handle OpenStreetMap queries and POI data processing.
+
+* Implemented `fetchRaw`:
+
+  * Sends POST request to Overpass API.
+  * Saves raw POI data to `raw.json` in `outputfiles` directory.
+
+* Implemented `saveAsFile`:
+
+  * Supports saving raw OSM data to disk with automatic `.json` extension.
+
+* Implemented `findRawLandmarks`:
+
+  * If no landmark list is provided, selects all POIs with a `name` tag.
+  * If a landmark list is provided, matches POIs against the list and logs missing entries.
+  * Uses `for-else` syntax for cleaner missing landmark detection.
+
+* Implemented `processRawLandmark`:
+
+  * Calculates centroid coordinates from `geometry` data.
+  * Extracts OSM `tags` (including metadata like `amenity`, `tourism`, `wikidata`, `wikipedia`).
+  * Packs processed landmark data into simplified format for consumption.
+
+### Test and Validation
+
+* Fetched and processed Cork POI dataset using composite Overpass query:
+
+  * Included categories: `amenity`, `tourism`, `historic`, `leisure`, `building` (with `name`).
+  * Excluded irrelevant categories (`parking`, `waste_disposal`, `pitch`).
+
+* Verified that key landmarks were correctly processed:
+
+  * Glucksman Gallery
+  * Boole Library
+  * The Quad / Aula Maxima
+
+* Generated `pre-processed.json` containing processed landmarks with centroids and metadata.
+
+### Design Notes
+
+* Used `out geom` to ensure way-type POIs have geometry data.
+* Supported both "fetch all" and "fetch selected" landmark modes.
+* Simple average used for centroid calculation.
+* Skipped POIs without `name` tags.
+* Future: Support metadata enrichment with `wikidata` and `wikipedia`.
+
+---
+
+## Riddle Generator
+
+### Implementation
+
+* Added `RiddleGenerator` class to automate riddle generation via GPT API.
+
+* Integrated OpenAI `gpt-4o` model:
+
+  * Configured prompt structure using `_get_template` method.
+  * Prompt incorporates landmark name and style, and requests riddles reflecting architecture, history, and significance.
+
+* Implemented `fetchRiddle`:
+
+  * For each landmark and style combination, sends API request.
+  * Stores responses in nested dictionary (`landmark -> style -> response`).
+  * Logs and skips failed requests.
+
+* Implemented `saveAsFile`:
+
+  * Saves generated riddles as `sample_riddle.json`.
+  * Uses nested dictionary format for easy lookup.
+
+### Test and Validation
+
+* Successfully generated riddles for Cork landmarks:
+
+  * Glucksman Gallery
+  * Cork Greyhound Track
+  * Honan Collegiate Chapel
+  * Boole Library
+  * The Quad / Aula Maxima
+
+* Generated riddles reflected medieval style and included contextual elements:
+
+  * Materials and architecture
+  * Usage and cultural significance
+  * Historical and local references
+
+#### Example (medieval style)
+
+```
+In yon grand hall of storied stone and lore,
+Where students and scholars gather to explore.
+A noble square, its heart beats true,
+In hues of ancient grey and steadfast blue.
+What mighty court holds wisdom’s gleaming core?
+```
+
+### Design Notes
+
+* Used nested dictionary for result storage.
+* Supported multiple riddle styles via `styles` parameter.
+* Prompt templating ensures flexibility and context awareness.
+* Future: Clean up response content and store processed riddles alongside raw responses.
+
+---
+
+## Summary
+
+* POI Preprocessor module is complete and generating standardized landmark data.
+* Riddle Generator module is functional, supports batch generation, and produces context-aware riddles.
+* Future work will focus on refining riddle formatting and enriching prompts with additional metadata.
 
 ---

@@ -1,6 +1,6 @@
 import requests
 
-class Preprocessor:
+class LandmarkGenerator:
 
     def __init__(self, query) -> None:
         self.query = query
@@ -63,6 +63,7 @@ class Preprocessor:
                 }
             
             # tags
+            info["tags"].pop("name", None)
             package["tags"] = info["tags"]
             processed_landmarks[name] = package
             
@@ -108,10 +109,10 @@ if __name__ == "__main__":
         "Western Gateway Building"
         ]
 
-    processor = Preprocessor(query)
+    processor = LandmarkGenerator(query)
     processor.fetchRaw().saveAsFile('raw.json')
     
-    # landmarks = processor.findRawLandmarks()
+    landmarks = processor.findRawLandmarks()
     landmarks = processor.findRawLandmarks(query_landmarks)
     
     processed_landmarks = processor.processRawLandmark(landmarks)

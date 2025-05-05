@@ -8,7 +8,6 @@
             "building": "university",
             "building:levels": "2",
             "building:material": "concrete",
-            "name": "Glucksman Gallery",
             "tourism": "gallery"
         }
     },
@@ -19,7 +18,6 @@
         },
         "tags": {
             "leisure": "track",
-            "name": "Cork Greyhound Track",
             "sport": "dog_racing"
         }
     },
@@ -32,7 +30,6 @@
             "amenity": "place_of_worship",
             "building": "chapel",
             "denomination": "roman_catholic",
-            "name": "Honan Collegiate Chapel",
             "religion": "christian"
         }
     },
@@ -52,7 +49,6 @@
             "building:levels": "5",
             "email": "library@ucc.ie",
             "internet_access": "yes",
-            "name": "Boole Library",
             "opening_hours": "07:30-01:30",
             "operator": "University College Cork",
             "operator:type": "public",
@@ -72,7 +68,6 @@
             "building:colour": "grey",
             "building:material": "stone",
             "layer": "1",
-            "name": "The Quad / Aula Maxima",
             "wheelchair": "yes"
         }
     }
