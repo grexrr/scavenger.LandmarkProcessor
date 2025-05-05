@@ -17,3 +17,5 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+openaiAPI.text

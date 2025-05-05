@@ -1,6 +1,6 @@
 # 🎯 Module Objective
 
-This module aims to provide **dynamic generation and supplementation of landmark content** for the city scavenger hunt game.
+This module aims to provide **dynamic generation and supplementation of landmark content** for the city scavenger hunt game as a microservice.
 Its responsibilities include:
 
 1. Automatically generating new landmarks and riddles based on external data (e.g. OpenStreetMap POIs) or game requests.
