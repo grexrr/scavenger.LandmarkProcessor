@@ -1,215 +1,168 @@
-# 🎯 Module Objective
+# Module Objective
 
-This module aims to provide **dynamic generation and supplementation of landmark content** for the city scavenger hunt game as a microservice.
+This module provides **dynamic generation and management of city landmark and riddle content** as a microservice, used by the scavenger hunt game system. It is divided into two fully decoupled components:
+
+1. **Landmark Preprocessor**: fetches and processes POI data from OSM and stores clean landmarks into MongoDB.
+2. **Riddle Generator**: loads landmarks from MongoDB and generates riddles using either OpenAI or local language models, saving them to a separate `riddles` collection.
+
 Its responsibilities include:
 
-1. Automatically generating new landmarks and riddles based on external data (e.g. OpenStreetMap POIs) or game requests.
-2. Managing landmark and riddle data and storing them in MongoDB for use by the main game service.
-3. Ensuring continuous and rich gameplay by generating content in real-time when landmarks/riddles are running low.
+* Automatically generating and saving structured landmark and riddle data to MongoDB.
+* Decoupling game content generation from runtime gameplay, enabling offline batch generation or admin-triggered updates.
+* Supporting future on-demand content requests through a clean and modular service interface.
 
 ---
 
-## 🧱 Architecture
+## Architecture
 
-### 🎲 Core Functions
+### Core Functions
 
-#### 1️⃣ Landmark Generation
+#### 1. Landmark Preprocessing (OSM to MongoDB)
 
-* Accept POI data (name, latitude, longitude) from OSM or other external sources.
-* Generate riddles for landmarks using GPT API.
-* Format as standardized Landmark data and save to MongoDB.
+* Fetch POI data from Overpass API using composite query.
+* Extract named POIs with geometry data (ways only).
+* Compute centroid coordinates and extract metadata tags.
+* Save standardized landmark data to MongoDB `landmarks` collection.
 
-#### 2️⃣ Riddle Supplementation
+#### 2. Riddle Generation (LLM to MongoDB)
 
-* Dynamically generate new riddles when all riddles for an existing landmark are exhausted.
-* Append new riddles to the landmark’s riddle list for future use.
+* Load landmark names and IDs from the `landmarks` collection.
+* For each (landmark × style) combination, send prompt to an LLM (OpenAI or local).
+* Extract and structure riddle content and metadata.
+* Store riddles in the `riddles` collection, linked by `landmarkId`.
 
-#### 3️⃣ On-Demand Landmark Request (Triggered by Game)
+#### 3. Batch or Offline Mode
 
-* Allow the game to request new landmarks when local landmark data is insufficient.
-* Automatically determine whether the requested landmark exists; if not, generate and return a new one.
+* Supports local execution for batch processing.
+* Admins can pre-generate riddles and landmarks before runtime.
+* Game service may invoke this microservice when content is missing.
 
-#### 4️⃣ Admin & Batch Import
+#### 4. Extensibility
 
-* Support bulk import of POI data.
-* Automatically generate riddles and store them in MongoDB.
+* Supports both online (OpenAI) and offline (mocked/local) modes.
+* Configurable styles through a list of predefined riddle styles.
+* Future support for difficulty, feedback-based adaptation, and narrative coherence.
 
 ---
 
-### 🗺️ Data Model
+## Data Model
 
-#### Landmark (MongoDB Collection: `landmarks`)
+### Landmark (MongoDB Collection: `landmarks`)
 
 ```json
 {
-  "_id": "auto-generated",
+  "_id": "ObjectId",
   "name": "Honan Chapel",
   "latitude": 51.8935,
   "longitude": -8.4900,
-  // (optional) other OSM-related metadata
+  "riddle": null,
+  "tags": {
+    "building": "chapel",
+    "historic": "yes",
+    "tourism": "attraction"
+  }
 }
 ```
 
-#### Riddle (MongoDB Collection: `riddles`)
+### Riddle (MongoDB Collection: `riddles`)
 
 ```json
 {
-  "_id": "auto-generated",
-  "landmark_id": "landmark-uuid",
-  "style": "historic",
-  "content": "Echoes of vows and silent prayer linger here",
-  "created_at": "2025-05-04T13:00:00Z"
+  "_id": "ObjectId",
+  "landmarkId": "682a25db03286f981e39c380",
+  "name": "Cork Greyhound Track",
+  "style": "medieval",
+  "source": "gpt-4o",
+  "content": "Where shadows chase beneath the moon’s decree...",
+  "metadata": {
+    "model": "gpt-4o-2024-08-06",
+    "created": 1747313463,
+    "openai_id": "chatcmpl-BXSLBnFvE0LLy1RbV3mz1ASeJnBsO"
+  }
 }
 ```
 
 ---
 
-## API (To be defined later)
+## API
 
-(Interfaces will be defined according to future implementation needs)
+The following endpoints are planned to support integration with the game service and administrative tools:
+
+* `POST /generate-riddles?model=openai`
+* `POST /insert-landmarks`
+* `GET /riddles?landmarkId=xxx&style=yyy`
 
 ---
 
 ## Notes
 
-* **GPT Integration** will be handled internally (sync or async optional).
-* **Riddle quality control and deduplication** can be added in future versions.
-* **Loose coupling with the game service** — the game simply requests and consumes landmark data.
-* **Shared MongoDB storage** — no need for duplicate databases.
+* Landmarks and riddles are stored in separate collections and connected via `landmarkId`.
+* The scavenger hunt game service does not generate content, it only queries MongoDB.
+* Prompt structure, style selection, and LLM mode are controlled in `riddle_generator.py`.
 
 ---
 
 ## Future Enhancements
 
-* Support for riddles of different styles and difficulty levels (e.g. child-friendly or challenge modes).
-* Full API specification for admin and game-side operations.
-* Integration with OpenStreetMap API for real-time POI data ingestion.
-* Narrative Arcs: support for riddle continuity and storyline.
-* Versioning and history tracking for data iteration.
+* Riddle difficulty classification and scoring.
+* Player-adaptive riddle selection.
+* Context-aware prompt enhancement using metadata (e.g., Wikipedia).
+* Versioning and riddle history.
+* Admin dashboard for content monitoring and override.
 
 ---
 
-#### May 5, 2025
+## Development Log
 
-## Objective
+### May 5, 2025
 
-Implement POI fetcher and preprocessor module, and begin work on riddle generation module for the dynamic landmark generator service.
+#### POI Fetcher and Preprocessor
 
----
+**Implementation**
 
-## POI Fetcher and Preprocessor
+* Created Overpass API query targeting named POIs in Cork across categories: tourism, historic, building, leisure.
+* Implemented centroid calculation using geometric average.
+* Stored processed landmarks with `name`, `latitude`, `longitude`, and `tags`.
 
-### Implementation
+**Validation**
 
-* Added `Preprocessor` class to handle OpenStreetMap queries and POI data processing.
+* Selected known landmarks and verified output in `pre-processed.json`.
 
-* Implemented `fetchRaw`:
+**Design Notes**
 
-  * Sends POST request to Overpass API.
-  * Saves raw POI data to `raw.json` in `outputfiles` directory.
-
-* Implemented `saveAsFile`:
-
-  * Supports saving raw OSM data to disk with automatic `.json` extension.
-
-* Implemented `findRawLandmarks`:
-
-  * If no landmark list is provided, selects all POIs with a `name` tag.
-  * If a landmark list is provided, matches POIs against the list and logs missing entries.
-  * Uses `for-else` syntax for cleaner missing landmark detection.
-
-* Implemented `processRawLandmark`:
-
-  * Calculates centroid coordinates from `geometry` data.
-  * Extracts OSM `tags` (including metadata like `amenity`, `tourism`, `wikidata`, `wikipedia`).
-  * Packs processed landmark data into simplified format for consumption.
-
-### Test and Validation
-
-* Fetched and processed Cork POI dataset using composite Overpass query:
-
-  * Included categories: `amenity`, `tourism`, `historic`, `leisure`, `building` (with `name`).
-  * Excluded irrelevant categories (`parking`, `waste_disposal`, `pitch`).
-
-* Verified that key landmarks were correctly processed:
-
-  * Glucksman Gallery
-  * Boole Library
-  * The Quad / Aula Maxima
-
-* Generated `pre-processed.json` containing processed landmarks with centroids and metadata.
-
-### Design Notes
-
-* Used `out geom` to ensure way-type POIs have geometry data.
-* Supported both "fetch all" and "fetch selected" landmark modes.
-* Simple average used for centroid calculation.
-* Skipped POIs without `name` tags.
-* Future: Support metadata enrichment with `wikidata` and `wikipedia`.
+* Focused on geometry-based ways only.
+* Skipped POIs without names.
+* Tag cleanup ensures compatibility with downstream modules.
 
 ---
 
-## Riddle Generator
+### May 18, 2025
 
-### Implementation
+#### Riddle Generator Microservice Integration
 
-* Added `RiddleGenerator` class to automate riddle generation via GPT API.
+**Implementation**
 
-* Integrated OpenAI `gpt-4o` model:
+* Refactored `riddle_generator.py` into a chainable Python class:
 
-  * Configured prompt structure using `_get_template` method.
-  * Prompt incorporates landmark name and style, and requests riddles reflecting architecture, history, and significance.
+  * `loadLandmarksFromDB()` loads (id, name) from `landmarks`.
+  * `generate()` prompts LLM (OpenAI or local) with formatted styles.
+  * `storeToDB()` writes to `riddles` with style, content, and metadata.
+  * `saveRawToFile()` saves raw responses to disk.
 
-* Implemented `fetchRiddle`:
+**Features**
 
-  * For each landmark and style combination, sends API request.
-  * Stores responses in nested dictionary (`landmark -> style -> response`).
-  * Logs and skips failed requests.
+* Supports multiple styles per landmark.
+* Configurable prompt templates.
+* Switchable backend: OpenAI or simulated local model.
 
-* Implemented `saveAsFile`:
+**Validation**
 
-  * Saves generated riddles as `sample_riddle.json`.
-  * Uses nested dictionary format for easy lookup.
+* Inserted multiple riddles into MongoDB linked by `landmarkId`.
+* Verified structure and content integrity.
 
-### Test and Validation
+**Design Notes**
 
-* Successfully generated riddles for Cork landmarks:
+* Output format matches future `Riddle.java` and `RiddleRepository`.
+* Errors are logged per landmark-style pair.
+* Supports clean overwrite or append logic.
 
-  * Glucksman Gallery
-  * Cork Greyhound Track
-  * Honan Collegiate Chapel
-  * Boole Library
-  * The Quad / Aula Maxima
-
-* Generated riddles reflected medieval style and included contextual elements:
-
-  * Materials and architecture
-  * Usage and cultural significance
-  * Historical and local references
-
-#### Example (medieval style)
-
-```
-In yon grand hall of storied stone and lore,
-Where students and scholars gather to explore.
-A noble square, its heart beats true,
-In hues of ancient grey and steadfast blue.
-What mighty court holds wisdom’s gleaming core?
-```
-
-### Design Notes
-
-* Used nested dictionary for result storage.
-* Supported multiple riddle styles via `styles` parameter.
-* Prompt templating ensures flexibility and context awareness.
-* Future: Clean up response content and store processed riddles alongside raw responses.
-
----
-
-## Summary
-
-* POI Preprocessor module is complete and generating standardized landmark data.
-* Riddle Generator module is functional, supports batch generation, and produces context-aware riddles.
-* Future work will focus on refining riddle formatting and enriching prompts with additional metadata.
-
----
