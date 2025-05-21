@@ -20,3 +20,5 @@ wheels/
 
 openaiAPI.txt
 enkboldAPI.txt
+
+.env
