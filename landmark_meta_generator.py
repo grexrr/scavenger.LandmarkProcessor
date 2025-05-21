@@ -1,9 +1,10 @@
 import requests
 import json
 from pymongo import MongoClient
+from dotenv import load_dotenv
 import os
 
-class RiddleGenerator:
+class LandmarkMetaGenerator:
     def __init__(self, api_key, styles, prompt_template, mongo_url="mongodb://localhost:27017", db_name="scavengerhunt", mode="openai"):
         self.api_key = api_key
         self.styles = styles
@@ -129,8 +130,12 @@ class RiddleGenerator:
         }
 
 if __name__ == "__main__":
-    with open('openaiAPI.txt', 'r') as f:
-        api_key = f.readline().strip()
+    # with open('openaiAPI.txt', 'r') as f:
+    #     api_key = f.readline().strip()
+
+    load_dotenv(override=True)
+    api_key = os.getenv('OPENAI_API_KEY')
+
 
     styles = ["medieval", "mysterious"]
 
@@ -140,7 +145,7 @@ if __name__ == "__main__":
     - Significance
     Keep the riddle concise (max 5 lines) and in a {style} tone."""
 
-    RiddleGenerator(
+    LandmarkMetaGenerator(
         api_key=api_key,
         styles=styles,
         prompt_template=PROMPT_TEMPLATE,
