@@ -3,7 +3,7 @@ from pymongo import MongoClient
 import json
 import os
 
-class LandmarkGenerator:
+class LandmarkPreprocessor:
 
     def __init__(self, query) -> None:
         self.query = query
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     ]
 
     processed_landmarks = (
-    LandmarkGenerator(query)
+    LandmarkPreprocessor(query)
         .fetchRaw()
         .findRawLandmarks(query_landmarks)
         .processRawLandmark()
