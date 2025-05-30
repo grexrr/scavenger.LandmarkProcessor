@@ -1,8 +1,9 @@
 import requests
 import json
 import os
-
+import re
 import wikipedia
+
 from openai import OpenAI
 
 from pymongo import MongoClient
@@ -60,23 +61,24 @@ class LandmarkMetaGenerator:
 
     
     def fetchOpenAI(self):
-
         for lm_id in self.metaInfo:
             lm_name = self.metaInfo[lm_id]["name"]
             lm_city = self.metaInfo[lm_id]["city"]
 
-            content = self.metaInfo[lm_id].get("meta", {}).get("wikipedia", None)
-            image_urls = self.metaInfo[lm_id].get("meta", {}).get("images", None)
+            content = self.metaInfo[lm_id].get("meta", {}).get("wikipedia")
+            image_urls = self.metaInfo[lm_id].get("meta", {}).get("images")
 
-            result = self._aiSummarizeLandmark(lm_name, lm_city, content, image_urls)
-            
             if "meta" not in self.metaInfo[lm_id]:
                 self.metaInfo[lm_id]["meta"] = {}
-            
-            self.metaInfo[lm_id]["meta"]["description"] = result.get("metadata", {})
+
+            desc = self.metaInfo[lm_id]["meta"].get("description")
+            if not desc:
+                print(f"[!] Description for {lm_name} is not found! Initializing Description.")
+                result = self._aiSummarizeLandmark(lm_name, lm_city, content, image_urls)
+                self.metaInfo[lm_id]["meta"]["description"] = result.get("metadata", {})
 
         return self
-            
+
 
     def _aiSummarizeLandmark(self, lm_name, lm_city, content=None, image_urls=None):
         client = OpenAI(api_key=self.api_key)
@@ -102,7 +104,7 @@ class LandmarkMetaGenerator:
         "architecture": [...],
         "functions": [...]
         }}
-        
+
         Do not include any explanation or commentary.
         If you're unsure about this landmark, clearly and reply only the following text: "This landmark is not recognized with enough confidence."
         """
@@ -121,7 +123,9 @@ class LandmarkMetaGenerator:
                 temperature=0.5,
                 max_tokens=500
             )
+
             text = response.choices[0].message.content
+            text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
 
             if "not recognized" in text.lower():
                 return {

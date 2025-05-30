@@ -14,9 +14,11 @@ parts/
 sdist/
 var/
 wheels/
+outputfiles/
 *.egg-info/
 .installed.cfg
 *.egg
+
 
 openaiAPI.txt
 enkboldAPI.txt
