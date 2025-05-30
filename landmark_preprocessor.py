@@ -5,8 +5,9 @@ import os
 
 class LandmarkPreprocessor:
 
-    def __init__(self, query) -> None:
+    def __init__(self, query, city="Cork") -> None:
         self.query = query
+        self.city = city
         self.osmUrl = "https://overpass-api.de/api/interpreter"
         self.rawFileName = "raw.json"
         self.rawData = None
@@ -76,6 +77,7 @@ class LandmarkPreprocessor:
         for name, info in self.processedLandmarks.items():
             entries.append({
                 "name": name,
+                "city": self.city,
                 "latitude": info["latitude"],
                 "longitude": info["longitude"],
                 "riddle": None
