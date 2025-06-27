@@ -52,11 +52,22 @@ class LandmarkPreprocessor:
         for name, info in self.rawLandmarks.items():
             package = {}
 
+            # centroids
             centroid_lat = sum(pt["lat"] for pt in info["geometry"]) / len(info["geometry"])
             centroid_lon = sum(pt["lon"] for pt in info["geometry"]) / len(info["geometry"])
 
             package["latitude"] = centroid_lat
             package["longitude"] = centroid_lon
+
+            # Keep all geometry points
+            geometry_points = []
+            for pt in info["geometry"]:
+                geometry_points.append({
+                    "lat": pt["lat"],
+                    "lon": pt["lon"]
+                })
+            
+            package["geometry"] = geometry_points
 
             info["tags"].pop("name", None)
             package["tags"] = info["tags"]
@@ -78,8 +89,11 @@ class LandmarkPreprocessor:
             entries.append({
                 "name": name,
                 "city": self.city,
-                "latitude": info["latitude"],
-                "longitude": info["longitude"],
+                "centroid": {
+                    "latitude": info["latitude"],
+                    "longitude": info["longitude"]
+                },
+                "geometry": info["geometry"],
                 "riddle": None
             })
 
@@ -115,7 +129,6 @@ class LandmarkPreprocessor:
         
         print(f"[✓] Raw OSM data saved to {path}")
         return self
-
 
 
 if __name__ == "__main__":

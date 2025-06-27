@@ -62,6 +62,9 @@ class LandmarkMetaGenerator:
     
     def fetchOpenAI(self):
         for lm_id in self.metaInfo:
+            if "meta" not in self.metaInfo[lm_id]:
+                self.metaInfo[lm_id]["meta"] = {}
+                
             lm_name = self.metaInfo[lm_id]["name"]
             lm_city = self.metaInfo[lm_id]["city"]
 
@@ -72,7 +75,7 @@ class LandmarkMetaGenerator:
                 self.metaInfo[lm_id]["meta"] = {}
 
             desc = self.metaInfo[lm_id]["meta"].get("description")
-            if not desc:
+            if desc is None or desc == {}:
                 print(f"[!] Description for {lm_name} is not found! Initializing Description.")
                 result = self._aiSummarizeLandmark(lm_name, lm_city, content, image_urls)
                 self.metaInfo[lm_id]["meta"]["description"] = result.get("metadata", {})
@@ -81,6 +84,7 @@ class LandmarkMetaGenerator:
 
 
     def _aiSummarizeLandmark(self, lm_name, lm_city, content=None, image_urls=None):
+        # generate something similiar to wikipedia?
         client = OpenAI(api_key=self.api_key)
         
         if not content:
@@ -92,21 +96,22 @@ class LandmarkMetaGenerator:
         Provide structured information about a real-world landmark called "{lm_name}" located in "{lm_city}".
         Additional information: {content}
 
-        If you recognize this place, summarize its:
-        - history
-        - architecture
-        - functions
+        history: Highlight significant events or periods related to the landmark.\
+        architecture: Mention unique structural or design features, pay attention to color\
+        significance: Emphasize its cultural, religious, or social importance.\
         Each in 5~10 keywords.
 
         Respond with expected JSON format:
         {{
         "history": [...],
         "architecture": [...],
-        "functions": [...]
+        "significance": [...]
         }}
+        
 
         Do not include any explanation or commentary.
-        If you're unsure about this landmark, clearly and reply only the following text: "This landmark is not recognized with enough confidence."
+        Respond ONLY with this JSON format. Do NOT explain.
+        If unsure, reply exactly with this string: `status: unknown`
         """
 
         try:
@@ -128,6 +133,7 @@ class LandmarkMetaGenerator:
             text = re.sub(r"```(?:json)?", "", text).replace("```", "").strip()
 
             if "not recognized" in text.lower():
+                print(f"[x] GPT did not recognize: {lm_name}")
                 return {
                 "source": "openai",
                 "confidence": False,
