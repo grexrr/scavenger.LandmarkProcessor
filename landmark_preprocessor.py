@@ -1,5 +1,5 @@
 import requests
-from pymongo import MongoClient
+from pymongo import MongoClient, GEOSPHERE
 import json
 import os
 
@@ -86,6 +86,15 @@ class LandmarkPreprocessor:
 
         entries = []
         for name, info in self.processedLandmarks.items():
+            coordinates = [[point["lon"], point["lat"]] for point in info["geometry"]]
+            if coordinates[0] != coordinates[-1]:
+                coordinates.append(coordinates[0]) #close
+
+            geojson_polygon = {
+                "type": "Polygon",
+                "coordinates": [coordinates] 
+            }
+
             entries.append({
                 "name": name,
                 "city": self.city,
@@ -93,7 +102,7 @@ class LandmarkPreprocessor:
                     "latitude": info["latitude"],
                     "longitude": info["longitude"]
                 },
-                "geometry": info["geometry"],
+                "geometry": geojson_polygon,
                 "riddle": None
             })
 
@@ -101,6 +110,7 @@ class LandmarkPreprocessor:
             landmark_collection.delete_many({})
         
         landmark_collection.insert_many(entries)
+        landmark_collection.create_index([("geometry", GEOSPHERE)])
         print(f"[✓] Inserted {len(entries)} landmarks into MongoDB.")
         return self
 
@@ -165,6 +175,24 @@ if __name__ == "__main__":
         .storeToDB()
         .saveAsFile("pre-processed.json")     
         .saveRawOSMAsFile("raw.json")              
-)
+    )
 
-  
+    # query = """
+    # [out:json];
+    # area["name"="Cork"]["boundary"="administrative"]->.searchArea;
+
+    # (
+    #     way(182676960);
+    # );
+    # out geom;
+    # """
+
+    # query_landmarks = ["Centra"] 
+
+    # processed_landmarks = (
+    #     LandmarkPreprocessor(query)
+    #         .fetchRaw()
+    #         .findRawLandmarks(query_landmarks)
+    #         .processRawLandmark()
+    #         .storeToDB(overwrite=False) 
+    # )
