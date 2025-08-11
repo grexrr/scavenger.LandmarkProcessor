@@ -3,6 +3,9 @@ from pymongo import MongoClient, GEOSPHERE
 import json
 import os
 
+from landmark_meta_generator import LandmarkMetaGenerator
+from dotenv import load_dotenv 
+
 class LandmarkPreprocessor:
 
     def __init__(self, query, city="Cork") -> None:
@@ -121,8 +124,8 @@ class LandmarkPreprocessor:
         os.makedirs("outputfiles", exist_ok=True)
         path = os.path.join("outputfiles", filename)
         
-        with open(path, 'w') as f:
-            json.dump(self.processedLandmarks, f, indent=2)
+        with open(path, 'w', encoding='utf-8') as f:  # 添加 encoding='utf-8'
+            json.dump(self.processedLandmarks, f, indent=2, ensure_ascii=False)  # 添加 ensure_ascii=False
         
         print(f"Processed landmarks saved to {path}")
         return self
@@ -142,29 +145,58 @@ class LandmarkPreprocessor:
 
 
 if __name__ == "__main__":
-    query = """
-    [out:json];
-    area["name"="Cork"]["boundary"="administrative"]->.searchArea;
+    # query = """
+    # [out:json];
+    # area["name"="Cork"]["boundary"="administrative"]->.searchArea;
 
+    # (
+    #     way["amenity"]["name"]["amenity"!="parking"]["amenity"!="parking_space"]["amenity"!="bicycle_parking"]["amenity"!="waste_disposal"](area.searchArea);
+    #     way["tourism"]["name"]["tourism"!="guest_house"](area.searchArea);
+    #     way["historic"]["name"](area.searchArea);
+    #     way["leisure"]["name"]["leisure"!="pitch"](area.searchArea);
+    #     way["building"]["name"](area.searchArea);
+    # );
+    # out geom;
+    # """
+
+    query = """
+    [out:json][timeout:180];
     (
-        way["amenity"]["name"]["amenity"!="parking"]["amenity"!="parking_space"]["amenity"!="bicycle_parking"]["amenity"!="waste_disposal"](area.searchArea);
-        way["tourism"]["name"]["tourism"!="guest_house"](area.searchArea);
-        way["historic"]["name"](area.searchArea);
-        way["leisure"]["name"]["leisure"!="pitch"](area.searchArea);
-        way["building"]["name"](area.searchArea);
+    way["amenity"]["name"]["amenity"!="parking"]["amenity"!="parking_space"]["amenity"!="bicycle_parking"]["amenity"!="waste_disposal"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
+    way["tourism"]["name"]["tourism"!="guest_house"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
+    way["historic"]["name"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
+    way["leisure"]["name"]["leisure"!="pitch"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
+    way["building"]["name"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
+    node["historic"]["indoor"!="yes"]
+        (poly:"23.09998 113.31101 23.10002 113.32784 23.12860 113.32719 23.13010 113.31097");
     );
-    out geom;
+    out tags geom;
     """
+    
+
+    # query_landmarks = [
+    #     "Glucksman Gallery", 
+    #     "Cork Greyhound Track", 
+    #     "Honan Collegiate Chapel",
+    #     "the President's Garden",
+    #     "Boole Library",
+    #     "The Quad / Aula Maxima",
+    #     "Brookfield Health Sciences Complex",
+    #     "Western Gateway Building"
+    # ]
 
     query_landmarks = [
-        "Glucksman Gallery", 
-        "Cork Greyhound Track", 
-        "Honan Collegiate Chapel",
-        "the President's Garden",
-        "Boole Library",
-        "The Quad / Aula Maxima",
-        "Brookfield Health Sciences Complex",
-        "Western Gateway Building"
+        "广州市第二少年宫", 
+        "广州图书馆", 
+        "广东省博物馆",
+        "广州国际金融中心(广州西塔)",
+        "海心沙亚运公园",
+        "广州塔",
     ]
 
     processed_landmarks = (
@@ -172,27 +204,44 @@ if __name__ == "__main__":
         .fetchRaw()
         .findRawLandmarks(query_landmarks)
         .processRawLandmark()
-        .storeToDB()
-        .saveAsFile("pre-processed.json")     
-        .saveRawOSMAsFile("raw.json")              
+        .storeToDB() 
+        .saveAsFile("guangzhou.json")   
+        # .saveAsFile("pre-processed.json")     
+        # .saveRawOSMAsFile("raw.json")              
     )
 
-    # query = """
-    # [out:json];
-    # area["name"="Cork"]["boundary"="administrative"]->.searchArea;
+    # 在这里生成metadata
+    print("\n[!] 开始生成广州地标的metadata...")
+    
+    load_dotenv(override=True)
+    api_key = os.getenv('OPENAI_API_KEY')
 
-    # (
-    #     way(182676960);
-    # );
-    # out geom;
-    # """
-
-    # query_landmarks = ["Centra"] 
-
-    # processed_landmarks = (
-    #     LandmarkPreprocessor(query)
-    #         .fetchRaw()
-    #         .findRawLandmarks(query_landmarks)
-    #         .processRawLandmark()
-    #         .storeToDB(overwrite=False) 
-    # )
+    if not api_key:
+        print("[x] OPENAI_API_KEY not found in environment variables!")
+    else:
+        meta_generator = LandmarkMetaGenerator(api_key)
+        
+        meta_generator.loadLandmarksFromDB()
+        
+        # 过滤出只针对这些地标的处理
+        original_landmarks = meta_generator.landmarks.copy()
+        meta_generator.landmarks = [
+            (lm_id, lm_name, city) for lm_id, lm_name, city in original_landmarks 
+            if lm_name in query_landmarks
+        ]
+        
+        print(f"[✓] 筛选出 {len(meta_generator.landmarks)} 个广州地标进行metadata生成")
+        
+        if len(meta_generator.landmarks) == 0:
+            print("[!] 警告：没有找到匹配的地标，请确保地标已存储到数据库")
+        else:
+            # 处理Wikipedia和OpenAI metadata
+            meta_generator.fetchWiki().fetchOpenAI()
+            
+            # 保存到文件
+            meta_generator.saveToFile("guangzhou_metadata.json")
+            
+            # 存储到数据库（不覆盖现有数据）
+            meta_generator.storeToDB(collection_name="landmark_metadata", overwrite=False)
+            
+            print("[✓] 广州地标metadata生成完成！")

@@ -435,9 +435,16 @@ Benefits:
 
 ## Next Steps
 
+## Next Steps
+
 * Integrate `landmark_metadata` into the Java-side `PuzzleManager` as the primary input for riddle generation
 * Use `description` fields to support difficulty estimation or thematic puzzle selection
 * Add caching or retry logic for GPT requests to reduce cost and prevent data loss
 * Extend support for multilingual metadata output
 * Introduce a scheduler to backfill metadata for any newly inserted landmarks on demand
 
+### Critical Issues to Address
+
+* **Duplicate Landmark Prevention**: The system currently performs multiple scans of the same target, causing database duplicates. Implement duplicate detection logic based on landmark name and city before inserting new entries to avoid redundant data storage.
+
+* **Geographic Region Matching**: Address city name mismatches where reverse geocoding returns district names (e.g., "天河区") that don't match with broader city names in the database (e.g., "广州市"). Implement a hierarchical location mapping system to normalize district-level results to their parent city for consistent database queries.
