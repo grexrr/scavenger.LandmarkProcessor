@@ -70,9 +70,9 @@ def fetch_landmark():
     existing_count = collection.count_documents({"city": city})
     print(f"[Landmark Processor] Found {existing_count} landmarks for city {city} in DB")
 
-    if existing_count > 20:
-        print(f"[✓] Landmark data for {city} already initialized, skipping fetch.")
-        return jsonify({"status": "ok", "city": city})
+    # if existing_count > 20:
+    #     print(f"[✓] Landmark data for {city} already initialized, skipping fetch.")
+    #     return jsonify({"status": "ok", "city": city})
     
     print(f"[!] Landmark data for {city} appears incomplete ({existing_count}), proceeding with fetch...")
 
@@ -96,6 +96,7 @@ def fetch_landmark():
             .findRawLandmarks()\
             .processRawLandmark()\
             .storeToDB(overwrite=False, mongo_url=MONGO_URL)
+            # .removeDuplicates()
 
         return jsonify({"status": "ok", "city": city})
     

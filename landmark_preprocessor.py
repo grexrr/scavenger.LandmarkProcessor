@@ -87,15 +87,27 @@ class LandmarkPreprocessor:
         db = client[db_name]
         landmark_collection = db.landmarks
 
+        if overwrite:
+            landmark_collection.delete_many({"city": self.city})
+
+        # check (name, city) turple storing in sets
+        existing_names = {
+            doc["name"] for doc in landmark_collection.find({"city": self.city}, {"name": 1})
+        }
+
         entries = []
         for name, info in self.processedLandmarks.items():
+            if name in existing_names:
+                print(f"[!] Skipping duplicate landmark: {name} ({self.city})")
+                continue
+
             coordinates = [[point["lon"], point["lat"]] for point in info["geometry"]]
             if coordinates[0] != coordinates[-1]:
-                coordinates.append(coordinates[0]) #close
+                coordinates.append(coordinates[0])  # close polygon
 
             geojson_polygon = {
                 "type": "Polygon",
-                "coordinates": [coordinates] 
+                "coordinates": [coordinates]
             }
 
             entries.append({
@@ -109,13 +121,15 @@ class LandmarkPreprocessor:
                 "riddle": None
             })
 
-        if overwrite:
-            landmark_collection.delete_many({})
-        
-        landmark_collection.insert_many(entries)
+        if entries:
+            landmark_collection.insert_many(entries)
+            print(f"[✓] Inserted {len(entries)} new landmarks into MongoDB (city: {self.city}).")
+        else:
+            print(f"[✓] No new landmarks to insert for {self.city}.")
+
         landmark_collection.create_index([("geometry", GEOSPHERE)])
-        print(f"[✓] Inserted {len(entries)} landmarks into MongoDB.")
         return self
+
 
     def saveAsFile(self, filename="processed.json"):
         if not self.processedLandmarks:
@@ -210,8 +224,7 @@ if __name__ == "__main__":
         # .saveRawOSMAsFile("raw.json")              
     )
 
-    # 在这里生成metadata
-    print("\n[!] 开始生成广州地标的metadata...")
+    print("\n[!] Start generating Guangzhou metadata...")
     
     load_dotenv(override=True)
     api_key = os.getenv('OPENAI_API_KEY')
@@ -223,25 +236,20 @@ if __name__ == "__main__":
         
         meta_generator.loadLandmarksFromDB()
         
-        # 过滤出只针对这些地标的处理
         original_landmarks = meta_generator.landmarks.copy()
         meta_generator.landmarks = [
             (lm_id, lm_name, city) for lm_id, lm_name, city in original_landmarks 
             if lm_name in query_landmarks
         ]
         
-        print(f"[✓] 筛选出 {len(meta_generator.landmarks)} 个广州地标进行metadata生成")
+        print(f"[✓] Selected {len(meta_generator.landmarks)} Guangzhou Landmark for metadata generation")
         
         if len(meta_generator.landmarks) == 0:
-            print("[!] 警告：没有找到匹配的地标，请确保地标已存储到数据库")
+            print("[!] Warning: No match landmark, please ensure landmars are stored in DB")
         else:
-            # 处理Wikipedia和OpenAI metadata
+           
             meta_generator.fetchWiki().fetchOpenAI()
-            
-            # 保存到文件
             meta_generator.saveToFile("guangzhou_metadata.json")
-            
-            # 存储到数据库（不覆盖现有数据）
             meta_generator.storeToDB(collection_name="landmark_metadata", overwrite=False)
             
-            print("[✓] 广州地标metadata生成完成！")
+            print("[✓]Guangzhou landmark metadata generated!")
