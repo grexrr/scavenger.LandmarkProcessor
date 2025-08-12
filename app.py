@@ -1,9 +1,19 @@
 from flask import Flask, request, jsonify  
 from landmark_preprocessor import LandmarkPreprocessor 
+from landmark_meta_generator import LandmarkMetaGenerator
 from geopy.geocoders import Nominatim
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+import os
 
 app = Flask(__name__)
+
+
+load_dotenv(override=True)
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME   = os.getenv("MONGO_DB",  "scavengerhunt")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 @app.route("/resolve-city", methods=["POST"])
 def resolve_city():
@@ -53,9 +63,8 @@ def fetch_landmark():
     print(f"[Landmark Processor] Resolved city: {city}")
 
     # check MongoDB
-    mongo_url = "mongodb://localhost:27017"
-    client = MongoClient(mongo_url)
-    db = client["scavengerhunt"]
+    client = MongoClient(MONGO_URL)
+    db = client[DB_NAME]
     collection = db["landmarks"]
 
     existing_count = collection.count_documents({"city": city})
@@ -86,7 +95,7 @@ def fetch_landmark():
             .fetchRaw()\
             .findRawLandmarks()\
             .processRawLandmark()\
-            .storeToDB(overwrite=False, mongo_url=mongo_url)
+            .storeToDB(overwrite=False, mongo_url=MONGO_URL)
 
         return jsonify({"status": "ok", "city": city})
     
@@ -94,9 +103,49 @@ def fetch_landmark():
         print(f"[Landmark Processor] Landmark processing failed: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# @app.route("/preprocess-landmark-meta", methods=["POST"])
-# def fetchLandmark():
-#     return
+@app.route("/generate-landmark-meta", methods=["POST"])
+def generate_landmark_meta():
+    
+    data = request.get_json(force=True) or {}
+    landmark_ids = data.get("landmarkIds") or []
+    override = bool(data.get("force", False))
+
+    if not landmark_ids or not isinstance(landmark_ids, list):
+        return jsonify({"status": "error", "message": "landmarkIds must be a non-empty list"}), 400
+    
+    client = MongoClient(MONGO_URL)
+    db = client[DB_NAME]
+
+    if not override:
+        existing_ids = db["landmark_metadata"].find(
+            {"landmarkId": {"$in": landmark_ids}},
+            {"landmarkId": 1, "_id": 0}
+        )
+        existing_ids = {doc["landmarkId"] for doc in existing_ids}
+        landmark_ids = [lmid for lmid in landmark_ids if lmid not in existing_ids]
+    
+    if not landmark_ids:
+        return jsonify({
+            "status": "ok",
+            "generated": 0,
+            "skipped": "all exist" if not override else 0,
+            "failed": 0
+        })
+    
+    try:
+        generator = LandmarkMetaGenerator(OPENAI_API_KEY, MONGO_URL, DB_NAME)
+        generator.loadLandmarksFromDB(landmark_ids).fetchWiki().fetchOpenAI().storeToDB(collection_name="landmark_metadata", overwrite=False)
+        
+        return jsonify({
+            "status": "ok",
+            "generated": len(generator.landmarks),
+            "skipped": len(data.get("landmarkIds", [])) - len(generator.landmarks),
+            "failed": 0
+        })
+    except Exception as e:
+        print(f"[Meta Generator] Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(port=5002)

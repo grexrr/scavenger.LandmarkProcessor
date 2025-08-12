@@ -435,8 +435,6 @@ Benefits:
 
 ## Next Steps
 
-## Next Steps
-
 * Integrate `landmark_metadata` into the Java-side `PuzzleManager` as the primary input for riddle generation
 * Use `description` fields to support difficulty estimation or thematic puzzle selection
 * Add caching or retry logic for GPT requests to reduce cost and prevent data loss
@@ -448,3 +446,31 @@ Benefits:
 * **Duplicate Landmark Prevention**: The system currently performs multiple scans of the same target, causing database duplicates. Implement duplicate detection logic based on landmark name and city before inserting new entries to avoid redundant data storage.
 
 * **Geographic Region Matching**: Address city name mismatches where reverse geocoding returns district names (e.g., "天河区") that don't match with broader city names in the database (e.g., "广州市"). Implement a hierarchical location mapping system to normalize district-level results to their parent city for consistent database queries.
+
+
+### Aug. 12, 2025 – Landmark Metadata API Integration & Duplication Handling
+
+**Summary:**  
+Completed end-to-end integration of the Landmark Metadata generation pipeline with the Java backend, ensuring on-demand enrichment of landmarks before gameplay.
+
+**Details:**
+
+1. **Java → Python Metadata Flow**
+   * Implemented batch invocation of the Flask `/generate-landmark-meta` endpoint in `LandmarkManager.ensureLandmarkMeta()`.
+   * Java sends a list of landmark IDs filtered by the current search radius.
+   * Python checks the `landmark_metadata` collection for existing entries and only generates metadata for missing IDs.
+
+2. **Python Endpoint Enhancements**
+   * Fixed collection name mismatch, standardizing all reads/writes to `landmark_metadata`.
+   * Updated `loadLandmarksFromDB()` to perform `ObjectId` conversion for precise `_id` matching in the `landmarks` collection.
+   * Added filtering for empty or invalid IDs to prevent 500 errors.
+
+3. **End-to-End Validation**
+   * Tested with two Cork city landmarks: `6895327b04e4917e0d875698` and `6895327b04e4917e0d875697`.
+   * Successfully triggered Wikipedia + GPT processing and wrote results to the `landmark_metadata` collection.
+   * Created a Bash script to batch-delete meta records for given `landmarkId`s to facilitate repeatable testing.
+
+4. **Current Impact**
+   * All new landmarks are enriched with metadata automatically before the first puzzle is generated.
+   * Landmarks with existing metadata are skipped, reducing API calls and costs.
+   * Structured metadata is now ready to be consumed by `PuzzleAgent` for context-aware riddle generation.

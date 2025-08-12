@@ -8,6 +8,7 @@ from openai import OpenAI
 
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from bson import ObjectId
 
 class LandmarkMetaGenerator:
     def __init__(self, api_key, mongo_url="mongodb://localhost:27017", db_name="scavengerhunt", mode="openai"):
@@ -18,13 +19,28 @@ class LandmarkMetaGenerator:
         self.metaInfo = {}
         self.landmarks = []
 
-    def loadLandmarksFromDB(self):
+    def loadLandmarksFromDB(self, landmark_ids=None):
         client = MongoClient(self.mongo_url)
         db = client[self.db_name]
         collection = db.landmarks
-        docs = collection.find({}, {"_id": 1, "name": 1, "city": 1})
+
+        query = {}
+        if landmark_ids:
+            object_ids = []
+            for lid in landmark_ids:
+                try:
+                    object_ids.append(ObjectId(lid))
+                except Exception:
+                    print(f"[!] Invalid ObjectId format skipped: {lid}")
+            query = {"_id": {"$in": object_ids}}
+
+        docs = collection.find(query, {"_id": 1, "name": 1, "city": 1})
         self.landmarks = [(str(doc["_id"]), doc["name"], doc.get("city", "")) for doc in docs]
-        print(f"[✓] Loaded {len(self.landmarks)} landmarks from DB.")
+        
+        if landmark_ids:
+            print(f"[✓] Loaded {len(self.landmarks)}/{len(landmark_ids)} requested landmarks from DB.")
+        else:
+            print(f"[✓] Loaded {len(self.landmarks)} landmarks from DB.")
         return self
     
     def fetchWiki(self):
