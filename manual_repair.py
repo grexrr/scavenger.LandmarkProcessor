@@ -52,8 +52,8 @@ for (name, city), landmark_id in meta_map.items():
         missing.append((name, city, landmark_id))
 
 if missing:
-    print(f"[VERIFY] 警告：有 {len(missing)} 条 meta 对应的 landmarks 仍然缺失：")
+    print(f"[VERIFY] 警告：有 {len(missing)} 条meta对应的landmarks仍然缺失：")
     for name, city, lid in missing:
         print(f"  {name} ({city}) -> {lid}")
 else:
-    print("[VERIFY] 验证通过：meta 中所有 landmarkId 均在 landmarks 表中找到。")
+    print("[VERIFY] 验证通过: meta中所有landmarkId均在landmarks表中找到。")

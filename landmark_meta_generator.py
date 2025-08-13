@@ -80,7 +80,7 @@ class LandmarkMetaGenerator:
         for lm_id in self.metaInfo:
             if "meta" not in self.metaInfo[lm_id]:
                 self.metaInfo[lm_id]["meta"] = {}
-                
+                    
             lm_name = self.metaInfo[lm_id]["name"]
             lm_city = self.metaInfo[lm_id]["city"]
 
