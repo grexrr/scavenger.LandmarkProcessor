@@ -4,7 +4,9 @@ import json
 import os
 
 from landmark_meta_generator import LandmarkMetaGenerator
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class LandmarkPreprocessor:
 
@@ -24,10 +26,10 @@ class LandmarkPreprocessor:
 
     def findRawLandmarks(self, landmarks=None):
         if self.rawData:
-            rawData = json.loads(self.rawData) 
-        else: 
+            rawData = json.loads(self.rawData)
+        else:
             raise ValueError("No raw data. Please run fetchRaw() first.")
-        
+
         res = {}
         if not landmarks:
             for entry in rawData["elements"]:
@@ -69,7 +71,7 @@ class LandmarkPreprocessor:
                     "lat": pt["lat"],
                     "lon": pt["lon"]
                 })
-            
+
             package["geometry"] = geometry_points
 
             info["tags"].pop("name", None)
@@ -79,9 +81,9 @@ class LandmarkPreprocessor:
         self.processedLandmarks = res
         return self
 
-    def storeToDB(self, overwrite=True, mongo_url="mongodb://localhost:27017", db_name="scavengerhunt"):
-        if not self.processedLandmarks:
-            raise ValueError("No processed landmarks. Please run processRawLandmark() first.")
+    def storeToDB(self, overwrite=True):
+        mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+        db_name = os.getenv("MONGO_DB", "scavengerhunt")
 
         client = MongoClient(mongo_url)
         db = client[db_name]
@@ -134,44 +136,44 @@ class LandmarkPreprocessor:
     def saveAsFile(self, filename="processed.json"):
         if not self.processedLandmarks:
             raise ValueError("No processed landmarks to save. Run processRawLandmark() first.")
-        
+
         os.makedirs("outputfiles", exist_ok=True)
         path = os.path.join("outputfiles", filename)
-        
+
         with open(path, 'w', encoding='utf-8') as f:  # 添加 encoding='utf-8'
             json.dump(self.processedLandmarks, f, indent=2, ensure_ascii=False)  # 添加 ensure_ascii=False
-        
+
         print(f"Processed landmarks saved to {path}")
         return self
 
     def saveRawOSMAsFile(self, filename="raw.json"):
         if not self.rawData:
             raise ValueError("No raw OSM data. Run fetchRaw() first.")
-        
+
         os.makedirs("outputfiles", exist_ok=True)
         path = os.path.join("outputfiles", filename)
-        
+
         with open(path, 'w') as f:
             f.write(self.rawData)
-        
+
         print(f"[✓] Raw OSM data saved to {path}")
         return self
 
 
 if __name__ == "__main__":
-    # query = """
-    # [out:json];
-    # area["name"="Cork"]["boundary"="administrative"]->.searchArea;
+    query = """
+    [out:json];
+    area["name"="Cork"]["boundary"="administrative"]->.searchArea;
 
-    # (
-    #     way["amenity"]["name"]["amenity"!="parking"]["amenity"!="parking_space"]["amenity"!="bicycle_parking"]["amenity"!="waste_disposal"](area.searchArea);
-    #     way["tourism"]["name"]["tourism"!="guest_house"](area.searchArea);
-    #     way["historic"]["name"](area.searchArea);
-    #     way["leisure"]["name"]["leisure"!="pitch"](area.searchArea);
-    #     way["building"]["name"](area.searchArea);
-    # );
-    # out geom;
-    # """
+    (
+        way["amenity"]["name"]["amenity"!="parking"]["amenity"!="parking_space"]["amenity"!="bicycle_parking"]["amenity"!="waste_disposal"](area.searchArea);
+        way["tourism"]["name"]["tourism"!="guest_house"](area.searchArea);
+        way["historic"]["name"](area.searchArea);
+        way["leisure"]["name"]["leisure"!="pitch"](area.searchArea);
+        way["building"]["name"](area.searchArea);
+    );
+    out geom;
+    """
 
     query = """
     [out:json][timeout:180];
@@ -191,11 +193,11 @@ if __name__ == "__main__":
     );
     out tags geom;
     """
-    
+
 
     # query_landmarks = [
-    #     "Glucksman Gallery", 
-    #     "Cork Greyhound Track", 
+    #     "Glucksman Gallery",
+    #     "Cork Greyhound Track",
     #     "Honan Collegiate Chapel",
     #     "the President's Garden",
     #     "Boole Library",
@@ -205,8 +207,8 @@ if __name__ == "__main__":
     # ]
 
     query_landmarks = [
-        "广州市第二少年宫", 
-        "广州图书馆", 
+        "广州市第二少年宫",
+        "广州图书馆",
         "广东省博物馆",
         "广州国际金融中心(广州西塔)",
         "海心沙亚运公园",
@@ -218,14 +220,14 @@ if __name__ == "__main__":
         .fetchRaw()
         .findRawLandmarks(query_landmarks)
         .processRawLandmark()
-        .storeToDB() 
-        .saveAsFile("guangzhou.json")   
-        # .saveAsFile("pre-processed.json")     
-        # .saveRawOSMAsFile("raw.json")              
+        .storeToDB()
+        .saveAsFile("guangzhou.json")
+        # .saveAsFile("pre-processed.json")
+        # .saveRawOSMAsFile("raw.json")
     )
 
     print("\n[!] Start generating Guangzhou metadata...")
-    
+
     load_dotenv(override=True)
     api_key = os.getenv('OPENAI_API_KEY')
 
@@ -233,23 +235,23 @@ if __name__ == "__main__":
         print("[x] OPENAI_API_KEY not found in environment variables!")
     else:
         meta_generator = LandmarkMetaGenerator(api_key)
-        
+
         meta_generator.loadLandmarksFromDB()
-        
+
         original_landmarks = meta_generator.landmarks.copy()
         meta_generator.landmarks = [
-            (lm_id, lm_name, city) for lm_id, lm_name, city in original_landmarks 
+            (lm_id, lm_name, city) for lm_id, lm_name, city in original_landmarks
             if lm_name in query_landmarks
         ]
-        
+
         print(f"[✓] Selected {len(meta_generator.landmarks)} Guangzhou Landmark for metadata generation")
-        
+
         if len(meta_generator.landmarks) == 0:
             print("[!] Warning: No match landmark, please ensure landmars are stored in DB")
         else:
-           
+
             meta_generator.fetchWiki().fetchOpenAI()
             meta_generator.saveToFile("guangzhou_metadata.json")
             meta_generator.storeToDB(collection_name="landmark_metadata", overwrite=False)
-            
+
             print("[✓]Guangzhou landmark metadata generated!")

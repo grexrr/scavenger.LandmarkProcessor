@@ -1,2 +1,4 @@
 pip install --upgrade pip
-pip install requests
+pip install requests>=2.25.1
+pymongo>=3.11.3
+flask>=1.1.2

@@ -10,11 +10,13 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from bson import ObjectId
 
+load_dotenv()
+
 class LandmarkMetaGenerator:
-    def __init__(self, api_key, mongo_url="mongodb://localhost:27017", db_name="scavengerhunt", mode="openai"):
-        self.api_key = api_key
-        self.mongo_url = mongo_url
-        self.db_name = db_name
+    def __init__(self, mode="openai"):
+        self.api_key = os.getenv("OPENAI_API_KEY", "")
+        self.mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+        self.db_name = os.getenv("MONGO_DB", "scavengerhunt")
         self.mode = mode  
         self.metaInfo = {}
         self.landmarks = []
@@ -243,11 +245,8 @@ class LandmarkMetaGenerator:
 
 if __name__ == "__main__":
 
-    load_dotenv(override=True)
-    api_key = os.getenv('OPENAI_API_KEY')
-
     generator = (
-        LandmarkMetaGenerator(api_key)
+        LandmarkMetaGenerator()
         .loadLandmarksFromDB()
         .fetchWiki()
         .fetchOpenAI()
