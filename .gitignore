@@ -25,3 +25,6 @@ openaiAPI.txt
 enkboldAPI.txt
 
 .env
+
+manual_delete.py
+manual_repair.py

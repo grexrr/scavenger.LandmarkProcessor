@@ -8,17 +8,17 @@ This module provides end-to-end processing of urban Points of Interest (POIs) fo
 
 ### Dependencies
 
-- **OpenStreetMap (OSM) 和 Overpass API**: 用于提取地理空间的兴趣点（POI）数据。
-- **MongoDB**: 用于存储处理后的地标数据。
-- **Java SpringBoot**: 用于接收和处理来自前端的请求。
-- **Flask**: 用于处理Python微服务的请求。
-- **Nominatim**: 用于反向地理编码。
-- **Wikipedia API**: 用于获取地标的文本信息。
-- **GPT-4 或其他本地模型**: 用于处理和总结从外部来源获取的数据。
-- **Python库**:
-  - `requests`: 用于HTTP请求。
-  - `pymongo`: 用于与MongoDB交互。
-  - `flask`: 用于构建Python微服务。
+- **OpenStreetMap (OSM) and Overpass API**: Used for extracting geospatial Points of Interest (POI) data.
+- **MongoDB**: Used for storing processed landmark data.
+- **Java SpringBoot**: Used for receiving and processing requests from the frontend.
+- **Flask**: Used for handling requests in Python microservices.
+- **Nominatim**: Used for reverse geocoding.
+- **Wikipedia API**: Used for retrieving textual information about landmarks.
+- **GPT-4 or other local models**: Used for processing and summarizing data obtained from external sources.
+- **Python Libraries**:
+  - `requests`: Used for HTTP requests.
+  - `pymongo`: Used for interacting with MongoDB.
+  - `flask`: Used for building Python microservices.
 
 ### Environment Configuration
 
@@ -32,7 +32,18 @@ To set up the environment, create a `.env` file in the root directory of the pro
 
 ### API Endpoints
 
+The module does not directly expose any API endpoints. However, it interacts with several external APIs and services:
+
+- **Overpass API**: Used to query OpenStreetMap for geospatial data.
+- **Wikipedia API**: Accessed to retrieve textual information about landmarks.
+- **OpenAI API**: Utilized for processing and summarizing data using LLMs.
+
 ### Troubleshooting
+
+- **Environment Variables Not Loaded**: Ensure that the `.env` file is correctly placed in the root directory and contains all necessary variables. Use `load_dotenv()` to load these variables at runtime.
+- **API Key Issues**: Verify that the `OPENAI_API_KEY` is correctly set in the environment variables. If the key is missing or incorrect, the module will not be able to access OpenAI services.
+- **Database Connection Errors**: Check the `MONGO_URL` and `MONGO_DB` environment variables to ensure they point to the correct MongoDB instance and database. Ensure MongoDB is running and accessible.
+- **HTTP Request Failures**: If requests to external APIs fail, check network connectivity and ensure the API endpoints are correct and accessible.
 ---
 
 ## Dev Log
