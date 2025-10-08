@@ -81,57 +81,79 @@ class LandmarkPreprocessor:
         self.processedLandmarks = res
         return self
 
-    def storeToDB(self, overwrite=True):
-        mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
-        db_name = os.getenv("MONGO_DB", "scavengerhunt")
+    def storeToDB(self, collection_name="landmark_metadata", overwrite=False):
+        client = MongoClient(self.mongo_url)
+        db = client[self.db_name]
+        collection = db[collection_name]
 
-        client = MongoClient(mongo_url)
-        db = client[db_name]
-        landmark_collection = db.landmarks
+        # 为landmarkId创建唯一索引
+        try:
+            collection.create_index("landmarkId", unique=True)
+        except Exception:
+            # 如果已有重复数据，索引创建会失败，需要先清理
+            print("[!] Unique index creation failed, cleaning duplicates first...")
+            pass
 
-        if overwrite:
-            landmark_collection.delete_many({"city": self.city})
+        inserted_count = 0
+        skipped_count = 0
+        cleaned_count = 0
 
-        # check (name, city) turple storing in sets
-        existing_names = {
-            doc["name"] for doc in landmark_collection.find({"city": self.city}, {"name": 1})
-        }
-
-        entries = []
-        for name, info in self.processedLandmarks.items():
-            if name in existing_names:
-                print(f"[!] Skipping duplicate landmark: {name} ({self.city})")
-                continue
-
-            coordinates = [[point["lon"], point["lat"]] for point in info["geometry"]]
-            if coordinates[0] != coordinates[-1]:
-                coordinates.append(coordinates[0])  # close polygon
-
-            geojson_polygon = {
-                "type": "Polygon",
-                "coordinates": [coordinates]
+        for lm_id, info in self.metaInfo.items():
+            entry = {
+                "landmarkId": lm_id,
+                "name": info["name"],
+                "city": info.get("city", ""),
+                "meta": info.get("meta", {})
             }
 
-            entries.append({
-                "name": name,
-                "city": self.city,
-                "centroid": {
-                    "latitude": info["latitude"],
-                    "longitude": info["longitude"]
-                },
-                "geometry": geojson_polygon,
-                "riddle": None
-            })
+            # 查找所有匹配的记录
+            existing_docs = list(collection.find({"landmarkId": lm_id}))
+            
+            if existing_docs:
+                if overwrite:
+                    # 如果要覆盖，删除所有旧记录，插入新的
+                    result = collection.delete_many({"landmarkId": lm_id})
+                    cleaned_count += result.deleted_count
+                    
+                    collection.insert_one(entry)
+                    inserted_count += 1
+                    print(f"[✓] Replaced {result.deleted_count} old record(s) for: {info['name']}")
+                else:
+                    # 不覆盖的情况下，检查是否有完整的 description
+                    has_complete_data = any(
+                        doc.get("meta", {}).get("description") 
+                        for doc in existing_docs
+                    )
+                    
+                    if has_complete_data:
+                        # 已有完整数据，跳过
+                        skipped_count += 1
+                        print(f"[→] Skipped (complete data exists): {info['name']}")
+                    else:
+                        # 已有数据不完整，删除并插入新的
+                        result = collection.delete_many({"landmarkId": lm_id})
+                        cleaned_count += result.deleted_count
+                        
+                        collection.insert_one(entry)
+                        inserted_count += 1
+                        print(f"[✓] Replaced {result.deleted_count} incomplete record(s) for: {info['name']}")
+            else:
+                # 不存在则插入新记录
+                collection.insert_one(entry)
+                inserted_count += 1
+                print(f"[✓] Inserted: {info['name']}")
 
-        if entries:
-            landmark_collection.insert_many(entries)
-            print(f"[✓] Inserted {len(entries)} new landmarks into MongoDB (city: {self.city}).")
-        else:
-            print(f"[✓] No new landmarks to insert for {self.city}.")
-
-        landmark_collection.create_index([("geometry", GEOSPHERE)])
-        return self
-
+        print(f"\n[Summary] Collection: {collection_name}")
+        print(f"  - Inserted: {inserted_count}")
+        print(f"  - Skipped: {skipped_count}")
+        print(f"  - Old Records Cleaned: {cleaned_count}")
+        
+        # 清理完后，确保创建唯一索引
+        try:
+            collection.create_index("landmarkId", unique=True)
+            print(f"[✓] Unique index ensured on landmarkId")
+        except Exception as e:
+            print(f"[!] Could not create unique index: {e}")
 
     def saveAsFile(self, filename="processed.json"):
         if not self.processedLandmarks:

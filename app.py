@@ -134,7 +134,7 @@ def generate_landmark_meta():
         })
     
     try:
-        generator = LandmarkMetaGenerator(OPENAI_API_KEY, MONGO_URL, DB_NAME)
+        generator = LandmarkMetaGenerator("openai") 
         generator.loadLandmarksFromDB(landmark_ids).fetchWiki().fetchOpenAI().storeToDB(collection_name="landmark_metadata", overwrite=False)
         
         return jsonify({
@@ -149,5 +149,10 @@ def generate_landmark_meta():
 
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    # app.run(port=5000)
+    host = os.getenv('FLASK_HOST', '0.0.0.0')  # 默认值
+    port = int(os.getenv('FLASK_PORT', '5000'))  # 默认值
+    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'  # 默认值
+    
+    app.run(host=host, port=port, debug=debug)
     

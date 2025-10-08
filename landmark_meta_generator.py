@@ -101,7 +101,7 @@ class LandmarkMetaGenerator:
         return self
 
 
-    def _aiSummarizeLandmark(self, lm_name, lm_city, content=None, image_urls=None):
+    def _aiSummarizeLandmark(self, lm_name, lm_city, content=None, image_urls=None, retry_count=0):
         # generate something similiar to wikipedia?
         client = OpenAI(api_key=self.api_key)
         
@@ -166,6 +166,10 @@ class LandmarkMetaGenerator:
                 }
             except json.JSONDecodeError:
                 print(f"[x] GPT output for {lm_name} could not be parsed as JSON:\n{text}")
+                # 重试逻辑
+                if retry_count < 1:
+                    print(f"[!] Retrying for {lm_name} (attempt {retry_count + 1})")
+                    return self._aiSummarizeLandmark(lm_name, lm_city, content, image_urls, retry_count + 1)
                 return {
                     "source": "openai",
                     "confidence": False,
@@ -173,6 +177,10 @@ class LandmarkMetaGenerator:
                 }
         except Exception as e:
             print(f"[x] Fallback GPT error for {lm_name}: {e}")
+            # 重试逻辑
+            if retry_count < 1:
+                print(f"[!] Retrying for {lm_name} (attempt {retry_count + 1})")
+                return self._aiSummarizeLandmark(lm_name, lm_city, content, image_urls, retry_count + 1)
             return {
                 "source": "openai", 
                 "confidence": False, 
@@ -216,16 +224,14 @@ class LandmarkMetaGenerator:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(self.metaInfo, f, ensure_ascii=False, indent=4)
 
-    def storeToDB(self, collection_name="landmark_metadata", overwrite=True):
+    def storeToDB(self, collection_name="landmark_metadata", overwrite=False):
         client = MongoClient(self.mongo_url)
         db = client[self.db_name]
         collection = db[collection_name]
 
-        if overwrite:
-            collection.delete_many({})
-            print(f"[!] Cleared existing collection: {collection_name}")
-
-        entries = []
+        inserted_count = 0
+        skipped_count = 0
+        updated_count = 0
 
         for lm_id, info in self.metaInfo.items():
             entry = {
@@ -234,13 +240,33 @@ class LandmarkMetaGenerator:
                 "city": info.get("city", ""),
                 "meta": info.get("meta", {})
             }
-            entries.append(entry)
 
-        if entries:
-            collection.insert_many(entries)
-            print(f"[✓] Inserted {len(entries)} documents into {collection_name}")
-        else:
-            print("[!] No entries to insert.")
+            # 检查数据库中是否已存在该地标
+            existing = collection.find_one({"landmarkId": lm_id})
+            
+            if existing:
+                if overwrite:
+                    # 如果设置了overwrite，更新现有记录
+                    collection.update_one(
+                        {"landmarkId": lm_id},
+                        {"$set": entry}
+                    )
+                    updated_count += 1
+                    print(f"[↻] Updated: {info['name']}")
+                else:
+                    # 如果已存在且不覆盖，跳过
+                    skipped_count += 1
+                    print(f"[→] Skipped (already exists): {info['name']}")
+            else:
+                # 不存在则插入新记录
+                collection.insert_one(entry)
+                inserted_count += 1
+                print(f"[✓] Inserted: {info['name']}")
+
+        print(f"\n[Summary] Collection: {collection_name}")
+        print(f"  - Inserted: {inserted_count}")
+        print(f"  - Skipped: {skipped_count}")
+        print(f"  - Updated: {updated_count}")
 
 
 if __name__ == "__main__":

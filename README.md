@@ -270,3 +270,90 @@ Completed end-to-end integration of the Landmark Metadata generation pipeline wi
    * All new landmarks are enriched with metadata automatically before the first puzzle is generated.
    * Landmarks with existing metadata are skipped, reducing API calls and costs.
    * Structured metadata is now ready to be consumed by `PuzzleAgent` for context-aware riddle generation.
+
+
+#### Oct. 8, 2025 - Metadata Deduplication and Schema Refinement
+
+**Summary:**  
+Resolved critical data duplication issues in the `landmark_metadata` collection and refined the LLM summarization schema to better align with riddle generation requirements.
+
+**Problem Context:**  
+During production runtime, duplicate `landmark_metadata` entries were discovered for the same `landmarkId`, with the first entry often lacking a complete `description` field. This caused the PuzzleAgent to retrieve incomplete metadata, leading to degraded riddle quality.
+
+**Root Cause Analysis:**
+1. **No Database-Level Constraint**: The `landmark_metadata` collection lacked a unique index on `landmarkId`, allowing multiple inserts for the same landmark.
+2. **Insert-Only Logic**: The original `storeToDB()` implementation used either full collection wipe (`overwrite=True`) or blind insertion (`overwrite=False`), neither of which handled partial or duplicate updates correctly.
+3. **Race Conditions**: Concurrent invocations from the Java backend could trigger simultaneous metadata generation for the same landmark.
+
+**Solution Implemented:**
+
+1. **Unique Index Enforcement**
+   * Added automatic creation of a unique index on `landmarkId` in `storeToDB()` to prevent future duplicates:
+   ```python
+   collection.create_index("landmarkId", unique=True)
+   ```
+
+2. **Smart Deduplication Logic**
+   * Introduced intelligent duplicate detection and cleanup:
+     * For each landmark, query all existing records with the same `landmarkId`
+     * If `overwrite=True`: Delete all old records and insert the new one
+     * If `overwrite=False` (default):
+       * Check if existing records have a complete `description` field
+       * If yes: Skip insertion to preserve complete data
+       * If no: Replace incomplete records with the newly generated metadata
+   
+   * This ensures that:
+     * Complete metadata is never overwritten by default
+     * Incomplete or corrupt entries are automatically replaced
+     * The relationship between `landmarks._id` and `landmark_metadata.landmarkId` remains intact
+
+3. **Enhanced Logging**
+   * Added detailed operation counters and per-landmark status reporting:
+   ```
+   [✓] Inserted: Canton Tower
+   [→] Skipped (complete data exists): Boole Library
+   [✓] Replaced 2 incomplete record(s) for: Sacred Heart Cathedral
+   
+   [Summary] Collection: landmark_metadata
+     - Inserted: 15
+     - Skipped: 8
+     - Old Records Cleaned: 6
+   ```
+
+**Schema Update: `functions` → `significance`**
+
+* Updated the `_aiSummarizeLandmark()` prompt to replace the `functions` field with `significance`:
+  * **Old**: `functions` (building purpose/usage)
+  * **New**: `significance` (cultural, religious, or social importance)
+  
+* **Rationale**: Riddle generation benefits more from contextual and symbolic meaning than operational details. "Significance" provides better semantic hooks for creative puzzle design.
+
+* **Updated Metadata Schema**:
+  ```json
+  {
+    "description": {
+      "history": ["1980s construction", "Guangzhou TV Tower", "renamed 2010"],
+      "architecture": ["steel lattice", "observation deck", "LED lighting"],
+      "significance": ["city landmark", "tourism hub", "modern identity"]
+    }
+  }
+  ```
+
+**Retry Logic for API Robustness**
+
+* Enhanced `_aiSummarizeLandmark()` with automatic retry on failure:
+  * JSON parsing errors → 1 retry
+  * OpenAI API exceptions → 1 retry
+  * Prevents transient network issues from causing permanent metadata gaps
+
+**Impact:**
+* ✅ Eliminates duplicate metadata entries in the database
+* ✅ Ensures PuzzleAgent always retrieves the most complete and recent metadata
+* ✅ Improves riddle quality through more contextually relevant semantic fields
+* ✅ Reduces wasted API calls by intelligently skipping complete entries
+* ✅ Provides clear operational visibility through structured logging
+
+**Next Steps:**
+* Monitor production logs to verify deduplication effectiveness
+* Consider implementing a background job to backfill `significance` data for older entries still using `functions`
+* Explore versioning metadata entries to track content evolution over time
