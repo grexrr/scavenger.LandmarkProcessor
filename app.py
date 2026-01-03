@@ -15,6 +15,10 @@ MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME   = os.getenv("MONGO_DB",  "scavengerhunt")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
 @app.route("/resolve-city", methods=["POST"])
 def resolve_city():
     data = request.get_json()
